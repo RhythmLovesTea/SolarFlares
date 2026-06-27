@@ -7,8 +7,8 @@ import pandas as pd
 C1_FLUX = 1e-6
 
 
-def _minutes_since_c1(sxr_flux: pd.Series) -> pd.Series:
-    above = sxr_flux >= C1_FLUX
+def _minutes_since_threshold(sxr_flux: pd.Series, threshold: float) -> pd.Series:
+    above = sxr_flux >= threshold
     values: list[float] = []
     counter = 0
     for is_above in above:
@@ -21,7 +21,13 @@ def _minutes_since_c1(sxr_flux: pd.Series) -> pd.Series:
     return pd.Series(values, index=sxr_flux.index, dtype=float)
 
 
-def compute_fai(sxr_flux: pd.Series, cadence_minutes: int = 1) -> pd.Series:
+def compute_fai(
+    sxr_flux: pd.Series,
+    cadence_minutes: int = 1,
+    input_kind: str | None = None,
+    quiet_mask: pd.Series | None = None,
+    threshold: float | None = None,
+) -> pd.Series:
     """
     Flare Anticipation Index -- thermal preconditioning signal from SoLEXS.
     Uses GOES XRS-B as SoLEXS proxy.
@@ -34,7 +40,9 @@ def compute_fai(sxr_flux: pd.Series, cadence_minutes: int = 1) -> pd.Series:
     - Thermal preconditioning concept: Benz (2017), Living Reviews in Solar Physics
     """
     # Data: GOES XRS proxy for SoLEXS (Lemen et al. 2012, Solar Physics 275, 17)
+    del input_kind
     flux = pd.to_numeric(sxr_flux, errors="coerce").ffill().bfill().clip(lower=0).fillna(0)
+    threshold_value = C1_FLUX if threshold is None else float(threshold)
     em_proxy = np.sqrt(flux)
     em_series = pd.Series(em_proxy, index=flux.index)
     em_growth = em_series.diff().rolling(window=2, min_periods=1).mean().clip(lower=0)
@@ -45,13 +53,17 @@ def compute_fai(sxr_flux: pd.Series, cadence_minutes: int = 1) -> pd.Series:
 
     p_component = (g_component > 0.1).rolling(window=10, min_periods=1).mean().clip(0, 1)
 
-    duration_minutes = _minutes_since_c1(flux) * cadence_minutes
+    duration_minutes = _minutes_since_threshold(flux, threshold_value) * cadence_minutes
     d_component = (duration_minutes / 60.0).clip(0, 1)
 
     derivative = flux.diff().fillna(0).abs()
-    quiet_window = max(1, int(len(flux) * 0.2))
-    quiet_mask = flux.iloc[:quiet_window] < C1_FLUX
-    quiet_derivative = derivative.iloc[:quiet_window][quiet_mask]
+    if quiet_mask is not None:
+        quiet_mask = pd.Series(quiet_mask, index=flux.index).fillna(False).astype(bool)
+        quiet_derivative = derivative[quiet_mask]
+    else:
+        quiet_window = max(1, int(len(flux) * 0.2))
+        quiet_mask = flux.iloc[:quiet_window] < threshold_value
+        quiet_derivative = derivative.iloc[:quiet_window][quiet_mask]
     sigma_max = quiet_derivative.std()
     if not np.isfinite(sigma_max) or sigma_max <= 0:
         sigma_max = derivative.quantile(0.95)
@@ -64,4 +76,4 @@ def compute_fai(sxr_flux: pd.Series, cadence_minutes: int = 1) -> pd.Series:
 
 
 def minutes_since_c1_threshold(sxr_flux: pd.Series, cadence_minutes: int = 1) -> pd.Series:
-    return _minutes_since_c1(pd.to_numeric(sxr_flux, errors="coerce").fillna(0)) * cadence_minutes
+    return _minutes_since_threshold(pd.to_numeric(sxr_flux, errors="coerce").fillna(0), C1_FLUX) * cadence_minutes

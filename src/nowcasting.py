@@ -28,6 +28,10 @@ def detect_flare_events(
     nri_series: pd.Series,
     sigma_nri: float | None = None,
     fai_series: pd.Series | None = None,
+    sxr_threshold: float | None = None,
+    class_from_peak=None,
+    input_kind: str | None = None,
+    quiet_mask: pd.Series | None = None,
 ) -> pd.DataFrame:
     """
     Automated flare catalogue builder using dual-trigger logic.
@@ -37,6 +41,7 @@ def detect_flare_events(
     - Dual-trigger logic: AgniDrishti proposal, Team HelioDynamics, BAH 2026
     - Coincidence window: Veronig et al. (2005), A&A 431, 1047
     """
+    del input_kind, quiet_mask
     sxr = pd.to_numeric(sxr_series, errors="coerce").ffill().bfill().fillna(0)
     nri = pd.to_numeric(nri_series, errors="coerce").reindex(sxr.index).interpolate().ffill().bfill().fillna(0)
     nri_sigma = nri_sigma_series(nri, sxr, sigma_nri)
@@ -44,7 +49,8 @@ def detect_flare_events(
     readings = replay_ladder(fai, nri_sigma)
     ladder_names = pd.Series([reading.state.name for reading in readings], index=sxr.index)
 
-    soft = (sxr >= C1_FLUX) & (sxr.diff().fillna(0) > 0)
+    threshold = C1_FLUX if sxr_threshold is None else float(sxr_threshold)
+    soft = (sxr >= threshold) & (sxr.diff().fillna(0) > 0)
     hard = nri_sigma > 3
     hard_window = hard.rolling(window=5, center=True, min_periods=1).max().astype(bool)
     trigger = soft & hard_window
@@ -103,7 +109,7 @@ def detect_flare_events(
                 "peak_time": peak_time,
                 "end_time": end_time,
                 "first_critical_time": first_critical_time,
-                "goes_class": goes_class_from_flux(peak_flux),
+                "goes_class": class_from_peak(peak_flux) if class_from_peak is not None else goes_class_from_flux(peak_flux),
                 "peak_flux": peak_flux,
                 "peak_fai": float(fai.loc[event_slice.index].max()),
                 "peak_nri": float(nri_sigma.loc[event_slice.index].max()),

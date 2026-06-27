@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 from sklearn.metrics import roc_auc_score
 
 
@@ -52,3 +53,55 @@ def compute_metrics(predictions, labels, lead_times):
         "CSI": float(csi),
         "confusion": {"TP": tp, "FP": fp, "TN": tn, "FN": fn},
     }
+
+
+def compute_metrics_by_class(predictions, labels, class_series, events) -> dict[str, dict[str, float]]:
+    y_pred = pd.Series(np.asarray(predictions).astype(int))
+    y_true = pd.Series(np.asarray(labels).astype(int))
+    classes = pd.Series(class_series).reset_index(drop=True).fillna("No event").astype(str)
+    events_df = events if isinstance(events, pd.DataFrame) else pd.DataFrame(events)
+
+    if "goes_class" in events_df:
+        ordered_classes = []
+        for value in events_df["goes_class"].dropna().astype(str):
+            key = value[:1].upper()
+            if key not in ordered_classes:
+                ordered_classes.append(key)
+    else:
+        ordered_classes = []
+
+    for fallback in ["B", "C", "M", "X"]:
+        if fallback not in ordered_classes:
+            ordered_classes.append(fallback)
+
+    results: dict[str, dict[str, float]] = {}
+    for event_class in ordered_classes:
+        mask = classes.str.upper().str.startswith(event_class)
+        subset_pred = y_pred[mask]
+        subset_true = y_true[mask]
+        event_mask = (
+            events_df.get("goes_class", pd.Series(dtype=str))
+            .astype(str)
+            .str.upper()
+            .str.startswith(event_class)
+            if not events_df.empty
+            else pd.Series(dtype=bool)
+        )
+        leads = (
+            pd.to_numeric(events_df.loc[event_mask, "lead_time_min"], errors="coerce").to_numpy(dtype=float)
+            if "lead_time_min" in events_df
+            else np.array([], dtype=float)
+        )
+
+        if len(subset_true) == 0:
+            results[event_class] = {"TPR": 0.0, "FAR": 0.0, "median_lead_time": 0.0, "N_events": int(event_mask.sum())}
+            continue
+
+        metrics = compute_metrics(subset_pred, subset_true, leads)
+        results[event_class] = {
+            "TPR": float(metrics["TPR"]),
+            "FAR": float(metrics["FAR"]),
+            "median_lead_time": float(metrics["median_lead_time"]),
+            "N_events": int(event_mask.sum()),
+        }
+    return results

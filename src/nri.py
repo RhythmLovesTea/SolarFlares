@@ -26,7 +26,13 @@ def estimate_coupling(hxr_norm: pd.Series, sxr_derivative_norm: pd.Series) -> fl
     return float(np.clip(np.dot(x[valid], y[valid]) / np.dot(x[valid], x[valid]), 0.1, 5.0))
 
 
-def compute_nri(hxr_flux: pd.Series, sxr_flux: pd.Series, k: float | None = None) -> tuple[pd.Series, float]:
+def compute_nri(
+    hxr_flux: pd.Series,
+    sxr_flux: pd.Series,
+    k: float | None = None,
+    input_kind: str | None = None,
+    quiet_mask: pd.Series | None = None,
+) -> tuple[pd.Series, float]:
     """
     Neupert Residual Index -- non-thermal ignition signal from HEL1OS.
     Uses Fermi GBM 25-50 keV as HEL1OS proxy.
@@ -39,6 +45,7 @@ def compute_nri(hxr_flux: pd.Series, sxr_flux: pd.Series, k: float | None = None
     - NRI operationalisation: AgniDrishti proposal, Team HelioDynamics, BAH 2026
     """
     # Fermi GBM HXR proxy: Meegan et al. (2009), ApJ 702, 791
+    del input_kind
     sxr = pd.to_numeric(sxr_flux, errors="coerce").ffill().bfill().fillna(0)
     hxr = pd.to_numeric(hxr_flux, errors="coerce").reindex(sxr.index).interpolate().ffill().bfill().fillna(0)
     hxr_norm = normalize_unit(hxr)
@@ -46,15 +53,25 @@ def compute_nri(hxr_flux: pd.Series, sxr_flux: pd.Series, k: float | None = None
     derivative_norm = normalize_unit(derivative)
     coupling = estimate_coupling(hxr_norm, derivative_norm) if k is None else float(k)
     nri = hxr_norm - coupling * derivative_norm
-    quiet = sxr < C1_FLUX
+    quiet = pd.Series(quiet_mask, index=sxr.index).fillna(False).astype(bool) if quiet_mask is not None else sxr < C1_FLUX
     if quiet.any():
         nri = nri - nri[quiet].median()
     return nri.fillna(0), coupling
 
 
-def quiet_sun_sigma(nri: pd.Series, sxr_flux: pd.Series) -> float:
+def quiet_sun_sigma(
+    nri: pd.Series,
+    sxr_flux: pd.Series,
+    input_kind: str | None = None,
+    quiet_mask: pd.Series | None = None,
+) -> float:
+    del input_kind
     sxr = pd.to_numeric(sxr_flux, errors="coerce").reindex(nri.index).ffill().bfill().fillna(0)
-    quiet = nri[sxr < C1_FLUX]
+    if quiet_mask is not None:
+        quiet_selector = pd.Series(quiet_mask, index=sxr.index).fillna(False).astype(bool)
+        quiet = nri[quiet_selector]
+    else:
+        quiet = nri[sxr < C1_FLUX]
     sigma = quiet.std()
     if not np.isfinite(sigma) or sigma <= 0:
         sigma = nri.iloc[: max(3, int(len(nri) * 0.2))].std()

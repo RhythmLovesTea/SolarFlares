@@ -9,15 +9,52 @@ import streamlit as st
 
 from data.download_fermi import synthetic_hxr_from_goes
 from data.download_goes import build_sample_event, load_goes_data
-from src.aditya_l1 import diagnose_data_root, load_aditya_l1_dataset
 from src.fai import compute_fai
-from src.independent_characterization import characterize_hel1os, characterize_solexs, fuse_independent_detections
 from src.ladder import ALERT_MESSAGES, STATE_COLORS, InstabilityLadderState, replay_ladder
 from src.metrics import compute_metrics, compute_metrics_by_class
 from src.nowcasting import build_event_labels, detect_flare_events, load_events_sqlite, save_events_sqlite
 from src.nri import compute_nri, quiet_sun_sigma
-from src.qpp import detect_qpp, load_czt_event_counts
 from src.visualisation import build_ladder_gauge, build_lightcurve
+
+try:
+    from src.aditya_l1 import diagnose_data_root, load_aditya_l1_dataset
+
+    ADITYA_L1_AVAILABLE = True
+except ModuleNotFoundError:
+    ADITYA_L1_AVAILABLE = False
+
+    def diagnose_data_root(data_root: str) -> list[str]:
+        root = Path(data_root)
+        status = "found" if root.exists() else "missing"
+        return [
+            f"Optional module src.aditya_l1 is not present in this repository snapshot.",
+            f"Configured data root: {root.resolve()} ({status})",
+            "Real Aditya-L1 ingestion is disabled; GOES/Fermi proxy mode remains available.",
+        ]
+
+    def load_aditya_l1_dataset(real_data_root: str):
+        raise ModuleNotFoundError("src.aditya_l1 is not available")
+
+try:
+    from src.independent_characterization import characterize_hel1os, characterize_solexs, fuse_independent_detections
+except ModuleNotFoundError:
+    def characterize_solexs(*_args, **_kwargs) -> pd.DataFrame:
+        return pd.DataFrame()
+
+    def characterize_hel1os(*_args, **_kwargs) -> pd.DataFrame:
+        return pd.DataFrame()
+
+    def fuse_independent_detections(*_args, **_kwargs) -> pd.DataFrame:
+        return pd.DataFrame()
+
+try:
+    from src.qpp import detect_qpp, load_czt_event_counts
+except ModuleNotFoundError:
+    def load_czt_event_counts(*_args, **_kwargs) -> pd.Series:
+        return pd.Series(dtype=float)
+
+    def detect_qpp(*_args, **_kwargs) -> dict:
+        return {}
 
 
 st.set_page_config(page_title="AgniDrishti", layout="wide", page_icon="☀")
@@ -583,7 +620,8 @@ st.markdown(
 
 with st.sidebar:
     st.header("Mode")
-    data_source = st.selectbox("Data source", ["real_aditya_l1", "goes_fermi_proxy"])
+    data_source_options = ["goes_fermi_proxy"] if not ADITYA_L1_AVAILABLE else ["real_aditya_l1", "goes_fermi_proxy"]
+    data_source = st.selectbox("Data source", data_source_options)
     real_data_root = st.text_input("Aditya-L1 data root", "data/aditya_l1")
     data_root_diagnostics = diagnose_data_root(real_data_root)
     with st.expander("🔍 Data Root Diagnostics", expanded=False):
