@@ -285,15 +285,38 @@ def load_aditya_l1_snapshot(cache_dir: str = "data/cache") -> tuple[pd.DataFrame
         "Full live analysis requires the raw FITS archive."
     ]
 
+    # Build DataFrames matching the exact column structure expected by
+    # characterize_solexs (needs a "counts" column on sdd2) and
+    # characterize_hel1os (needs "czt_fullband_ctr" column on czt).
+    # Passing raw Series causes AttributeError because those functions call
+    # `df.columns` and check column membership.
+    _empty_ts_idx = pd.DatetimeIndex([], tz="UTC")
+
+    sdd2_df = (
+        frame[["sxr_b"]].rename(columns={"sxr_b": "counts"})
+        if "sxr_b" in frame.columns
+        else pd.DataFrame(columns=["counts"], index=_empty_ts_idx)
+    )
+
+    czt_df = (
+        frame[["hxr_proxy"]].rename(columns={"hxr_proxy": "czt_fullband_ctr"})
+        if "hxr_proxy" in frame.columns
+        else pd.DataFrame(columns=["czt_fullband_ctr"], index=_empty_ts_idx)
+    )
+
+    # Empty GTI DataFrames matching _read_solexs_gti / _read_hel1os_gti shapes
+    _empty_sxr_gti = pd.DataFrame(columns=["start", "stop"])
+    _empty_hxr_gti = pd.DataFrame(columns=["start", "stop", "detector", "source"])
+
     products = {
-        "sdd1":     None,
-        "sdd2":     frame["sxr_b"] if "sxr_b" in frame.columns else pd.Series(dtype=float),
-        "sdd1_gti": [],
-        "sdd2_gti": _parse_gti(gti_data.get("sdd2_gti", [])),
-        "cdte":     None,
-        "czt":      frame["hxr_proxy"] if "hxr_proxy" in frame.columns else pd.Series(dtype=float),
-        "cdte_gti": [],
-        "czt_gti":  _parse_gti(gti_data.get("czt_gti", [])),
+        "sdd1":     pd.DataFrame(columns=["counts"], index=_empty_ts_idx),
+        "sdd2":     sdd2_df,
+        "sdd1_gti": _empty_sxr_gti,
+        "sdd2_gti": _empty_sxr_gti,
+        "cdte":     pd.DataFrame(index=_empty_ts_idx),
+        "czt":      czt_df,
+        "cdte_gti": _empty_hxr_gti,
+        "czt_gti":  _empty_hxr_gti,
         "paths":    {"source": parquet_path},
         "notices":  snapshot_notices,
     }
