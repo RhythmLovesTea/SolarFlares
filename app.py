@@ -780,11 +780,8 @@ with st.sidebar:
     degradation_mode = st.selectbox("Degradation mode", ["Both instruments", "SoLEXS only", "HEL1OS only"])
 
 base, source_used, independent = load_selected_data(data_source, mode, real_data_root)
-if independent.get("fallback_reason"):
-    st.warning(f"{independent['fallback_reason']}. Falling back to GOES/Fermi proxy.")
-for notice in independent.get("notices", []):
-    st.info(notice)
 frame, events, metrics, metrics_by_class, k, sigma = compute_dashboard_frame(base, degradation_mode, source_used)
+
 
 current = frame.iloc[-1]
 current_state = InstabilityLadderState[current["ladder_state"]]
