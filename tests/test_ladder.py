@@ -2,7 +2,7 @@ from src.ladder import InstabilityLadder, InstabilityLadderState, assign_ladder_
 
 
 def test_green_state_quiet_sun():
-    assert assign_ladder_state(0.1, 0.5, 0) == InstabilityLadderState.GREEN
+    assert assign_ladder_state(0.1, 0.5, 0) == InstabilityLadderState.QUIET
 
 
 def test_critical_requires_both_fai_and_nri():
@@ -14,5 +14,5 @@ def test_ladder_cannot_skip_states():
     ladder = InstabilityLadder()
     first = ladder.update(0.9, 4.5, 1.0)
     second = ladder.update(0.9, 4.5, 1.0)
-    assert first.state == InstabilityLadderState.YELLOW
-    assert second.state == InstabilityLadderState.ORANGE
+    assert first.state == InstabilityLadderState.PREHEATING
+    assert second.state == InstabilityLadderState.THERMAL_INSTABILITY

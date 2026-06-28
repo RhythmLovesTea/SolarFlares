@@ -123,7 +123,7 @@ def _load_snapshot() -> dict | None:
     }
 
 
-st.set_page_config(page_title="AgniDrishti", layout="wide", page_icon="☀")
+st.set_page_config(page_title="Coronalytics", layout="wide", page_icon="☀")
 
 
 def quiet_counts_mask(series: pd.Series) -> pd.Series:
@@ -286,7 +286,7 @@ def compute_dashboard_frame(base: pd.DataFrame, degradation_mode: str, data_sour
     )
     save_events_sqlite(events)
     labels = build_event_labels(frame.index, events)
-    predictions = frame["ladder_state"].isin(["RED", "CRITICAL"]).astype(int)
+    predictions = frame["ladder_state"].isin(["IGNITION", "CRITICAL"]).astype(int)
     lead_times = events["lead_time_min"].to_numpy() if not events.empty else []
     metrics = compute_metrics(predictions, labels, lead_times)
     class_series = class_series_for_events(frame.index, events)
@@ -699,11 +699,11 @@ st.html(
 st.markdown(
     """
     <div class="app-header">
-      <h1>&#9728; AgniDrishti</h1>
+      <h1>&#9728; Coronalytics</h1>
       <div style="margin-bottom:8px;">
         <span class="badge badge-coral">ISRO BAH 2026</span>
         <span class="badge">Challenge 15</span>
-        <span class="badge">Team HelioDynamics</span>
+        <span class="badge">Team Chromium</span>
       </div>
       <div class="caption">Physics-Informed Solar Flare Forecasting &mdash; Instruments: SoLEXS (soft X-ray) + HEL1OS (hard X-ray), with GOES XRS + Fermi GBM proxy fallback</div>
     </div>
@@ -737,6 +737,14 @@ current_state = InstabilityLadderState[current["ladder_state"]]
 state_color = STATE_COLORS[current_state]
 alert = ALERT_MESSAGES[current_state]
 
+_STATE_DISPLAY = {
+    "QUIET": "Quiet",
+    "PREHEATING": "Pre-Heating",
+    "THERMAL_INSTABILITY": "Thermal Instability",
+    "IGNITION": "Ignition",
+    "CRITICAL": "Critical",
+}
+
 left, right = st.columns([1.25, 1])
 with left:
     st.plotly_chart(build_ladder_gauge(current_state, float(current["fai"]), float(current["nri_sigma"])), width="stretch")
@@ -744,8 +752,9 @@ with right:
     if current_state is InstabilityLadderState.CRITICAL:
         st.markdown(f'<div class="critical-pulse"><h2>{alert}</h2></div>', unsafe_allow_html=True)
     else:
+        display_name = _STATE_DISPLAY.get(current_state.name, current_state.name)
         st.markdown(
-            f'<div class="state-card"><h2 style="color:{state_color};">{current_state.name}</h2><p>{alert}</p></div>',
+            f'<div class="state-card"><h2 style="color:{state_color};">{display_name}</h2><p>{alert}</p></div>',
             unsafe_allow_html=True,
         )
     c1, c2 = st.columns(2)
@@ -845,6 +854,7 @@ else:
     table["Peak FAI"] = table["Peak FAI"].map(lambda value: f"{float(value):.2f}")
     table["NRI (σ)"] = table["NRI (σ)"].map(lambda value: f"{float(value):.1f}σ")
     table["Lead Time"] = table["Lead Time"].map(lambda value: f"{int(value)} min")
+    table["Ladder State"] = table["Ladder State"].map(lambda s: _STATE_DISPLAY.get(str(s), str(s)))
     st.dataframe(table[["Start UTC", "Peak UTC", "Class", "Peak FAI", "NRI (σ)", "Ladder State", "Lead Time"]], width="stretch")
 
 with st.sidebar:
@@ -869,7 +879,7 @@ with st.sidebar:
     with st.expander("📊 vs Published Benchmarks", expanded=False):
         st.markdown(
             """
-            | Metric | **AgniDrishti** | Hassani+2025 | Quantum-Ark* |
+            | Metric | **Coronalytics** | Hassani+2025 | Quantum-Ark* |
             |--------|----------------|--------------|--------------|
             | TPR (M+) | {tpr:.2f} | 0.80 | 0.94† |
             | FAR | {far:.2f} | <0.30 | 0.21† |
@@ -878,7 +888,7 @@ with st.sidebar:
             | Lead Time | {lead:.0f} min | >10 min | 28 min† |
 
             *†Quantum-Ark evaluated on 50 hand-picked events (Jun-Sep 2024)*  
-            *AgniDrishti evaluated on full 2021-2023 GOES proxy test set*
+            *Coronalytics evaluated on full 2021-2023 GOES proxy test set*
 
             **Our edge:** Physics-first explainability — every alert  
             traces to FAI and NRI, not a black-box score.  
@@ -892,7 +902,7 @@ with st.sidebar:
             )
         )
 
-with st.expander("📐 Physics Behind AgniDrishti"):
+with st.expander("📐 Physics Behind Coronalytics"):
     qpp_result = independent.get("qpp_result") or {}
     qpp_line = (
         f"Current QPP candidate: period {qpp_result.get('period_s', 0):.1f} s, "
@@ -911,10 +921,10 @@ with st.expander("📐 Physics Behind AgniDrishti"):
         Non-thermal ignition from HEL1OS. For real data, `F_HXR` is CZT full-band background-subtracted counts/sec, `dF_SXR/dt` is the derivative of combined SoLEXS SDD1+SDD2 counts/sec, `k` is fit on this dataset's rise-phase samples, and quiet-Sun sigma is estimated on GTI-valid quiet intervals.
 
         **QPP Fine Structure**
-        NRI's sensitivity to short-duration HXR microbursts (NRI spikes > 4σ) is complemented by explicit QPP detection: a Lomb-Scargle periodogram on CZT count rate during RED/CRITICAL windows flags oscillatory periods of 2-300 seconds, addressing quasi-periodic pulsations as hard X-ray fine structure. {qpp_line}
+        NRI's sensitivity to short-duration HXR microbursts (NRI spikes > 4σ) is complemented by explicit QPP detection: a Lomb-Scargle periodogram on CZT count rate during Ignition/Critical windows flags oscillatory periods of 2-300 seconds, addressing quasi-periodic pulsations as hard X-ray fine structure. {qpp_line}
 
         **Sequential Solar Instability Ladder**  
-        5-stage deterministic state machine: Green -> Yellow -> Orange -> Red -> Critical. Every alert is traceable to a measured physical quantity.
+        5-stage deterministic state machine: Quiet → Pre-Heating → Thermal Instability → Ignition → Critical. Every alert is traceable to a measured physical quantity.
 
         **Key Citations:**  
         - Neupert (1968), ApJ 153, L59 — foundational Neupert effect  

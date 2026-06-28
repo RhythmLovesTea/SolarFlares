@@ -19,7 +19,7 @@ def build_ladder_gauge(state, fai: float, nri_sigma: float) -> go.Figure:
                 "axis": {
                     "range": [0, 4],
                     "tickvals": [0, 1, 2, 3, 4],
-                    "ticktext": ["G", "Y", "O", "R", "C"],
+                    "ticktext": ["Quiet", "Pre-H", "Therm", "Ign", "Crit"],
                     "tickfont": {"size": 13, "color": "#6c6a64"},
                 },
                 "bar": {"color": color},

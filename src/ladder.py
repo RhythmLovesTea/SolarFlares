@@ -5,26 +5,26 @@ from enum import Enum
 
 
 class InstabilityLadderState(Enum):
-    GREEN = 0
-    YELLOW = 1
-    ORANGE = 2
-    RED = 3
+    QUIET = 0
+    PREHEATING = 1
+    THERMAL_INSTABILITY = 2
+    IGNITION = 3
     CRITICAL = 4
 
 
 ALERT_MESSAGES = {
-    InstabilityLadderState.GREEN: "Green – Quiet Sun – No significant instability.",
-    InstabilityLadderState.YELLOW: "Yellow – Thermal Instability Building – FAI > 0.3",
-    InstabilityLadderState.ORANGE: "Orange – Sustained Emission Measure Rise – High energy storage.",
-    InstabilityLadderState.RED: "Red – Non-Thermal Ignition Signatures – HXR microbursts detected.",
+    InstabilityLadderState.QUIET: "Quiet – Quiet Sun – No significant instability.",
+    InstabilityLadderState.PREHEATING: "Pre-Heating – Thermal Instability Building – FAI > 0.3",
+    InstabilityLadderState.THERMAL_INSTABILITY: "Thermal Instability – Sustained Emission Measure Rise – High energy storage.",
+    InstabilityLadderState.IGNITION: "Ignition – Non-Thermal Ignition Signatures – HXR microbursts detected.",
     InstabilityLadderState.CRITICAL: "Critical – Thermal + Non-Thermal Confirmed – Eruption likely < 15 min.",
 }
 
 STATE_COLORS = {
-    InstabilityLadderState.GREEN: "#00C851",
-    InstabilityLadderState.YELLOW: "#FFD700",
-    InstabilityLadderState.ORANGE: "#FF8C00",
-    InstabilityLadderState.RED: "#FF3D00",
+    InstabilityLadderState.QUIET: "#00C851",
+    InstabilityLadderState.PREHEATING: "#FFD700",
+    InstabilityLadderState.THERMAL_INSTABILITY: "#FF8C00",
+    InstabilityLadderState.IGNITION: "#FF3D00",
     InstabilityLadderState.CRITICAL: "#FF0000",
 }
 
@@ -34,24 +34,24 @@ def assign_ladder_state(fai: float, nri_sigma: float, nri_slope: float) -> Insta
     Sequential Solar Instability Ladder -- 5-stage physics state machine.
 
     States and transitions:
-    GREEN:    FAI < 0.3  AND  NRI < 1sigma
-    YELLOW:   FAI >= 0.3 AND < 0.6  AND  NRI < 1sigma
-    ORANGE:   FAI >= 0.6  AND  NRI < 2sigma
-    RED:      NRI >= 2sigma AND FAI >= 0.5  OR  NRI spikes > 4sigma
-    CRITICAL: FAI >= 0.7 AND NRI >= 3sigma for >= 1 min AND positive NRI slope
+    QUIET:               FAI < 0.3  AND  NRI < 1sigma
+    PREHEATING:          FAI >= 0.3 AND < 0.6  AND  NRI < 1sigma
+    THERMAL_INSTABILITY: FAI >= 0.6  AND  NRI < 2sigma
+    IGNITION:            NRI >= 2sigma AND FAI >= 0.5  OR  NRI spikes > 4sigma
+    CRITICAL:            FAI >= 0.7 AND NRI >= 3sigma for >= 1 min AND positive NRI slope
 
-    Citation: AgniDrishti proposal v2.0, Team HelioDynamics, BAH 2026
+    Citation: Coronalytics proposal v2.0, Team Chromium, BAH 2026
               Physical basis: Fletcher et al. (2011), Space Science Reviews 159, 19
     """
     if fai >= 0.7 and nri_sigma >= 3 and nri_slope > 0:
         return InstabilityLadderState.CRITICAL
     if (nri_sigma >= 2 and fai >= 0.5) or nri_sigma > 4:
-        return InstabilityLadderState.RED
+        return InstabilityLadderState.IGNITION
     if fai >= 0.6 and nri_sigma < 2:
-        return InstabilityLadderState.ORANGE
+        return InstabilityLadderState.THERMAL_INSTABILITY
     if 0.3 <= fai < 0.6 and nri_sigma < 1:
-        return InstabilityLadderState.YELLOW
-    return InstabilityLadderState.GREEN
+        return InstabilityLadderState.PREHEATING
+    return InstabilityLadderState.QUIET
 
 
 @dataclass
@@ -65,7 +65,7 @@ class InstabilityLadder:
     """Duration-aware state machine for replaying one-minute solar instability readings."""
 
     def __init__(self) -> None:
-        self.state = InstabilityLadderState.GREEN
+        self.state = InstabilityLadderState.QUIET
         self.duration_minutes = 0
         self._critical_candidate_minutes = 0
 
@@ -75,7 +75,7 @@ class InstabilityLadder:
         self._critical_candidate_minutes = self._critical_candidate_minutes + 1 if critical_ready else 0
 
         if target is InstabilityLadderState.CRITICAL and self._critical_candidate_minutes < 1:
-            target = InstabilityLadderState.RED
+            target = InstabilityLadderState.IGNITION
 
         if target.value > self.state.value + 1:
             target = InstabilityLadderState(self.state.value + 1)
