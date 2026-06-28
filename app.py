@@ -933,62 +933,73 @@ if source_used == "real_aditya_l1":
         """
         <div style="
             margin: 2rem 0 1.6rem 0;
-            padding: 24px 28px 20px 28px;
-            background: var(--color-surface-dark);
-            border-radius: 14px;
-            box-shadow: var(--shadow-card);
-            border-left: 3px solid var(--color-primary);
+            padding: 26px 30px 22px 30px;
+            background: linear-gradient(160deg, #faf9f5, #f0e9de);
+            border-radius: 16px;
+            border: 1px solid #e6dfd8;
+            border-left: 4px solid #cc785c;
+            box-shadow: 0 14px 34px rgba(20,20,19,0.06);
         ">
             <div style="
-                font-family: var(--font-body);
-                font-size: 0.72rem;
-                font-weight: 600;
-                letter-spacing: 1.4px;
+                font-family: 'Inter', sans-serif;
+                font-size: 0.7rem;
+                font-weight: 700;
+                letter-spacing: 1.6px;
                 text-transform: uppercase;
-                color: var(--color-primary);
-                margin-bottom: 10px;
+                color: #cc785c;
+                margin-bottom: 14px;
             ">📋 Data Transparency — Evaluation Context</div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 14px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
                 <div style="
-                    background: rgba(255,255,255,0.04);
-                    border-radius: 10px;
-                    padding: 14px 16px;
+                    background: rgba(255,255,255,0.7);
+                    border-radius: 12px;
+                    padding: 16px 18px;
+                    border: 1px solid #e6dfd8;
                 ">
-                    <div style="font-family: var(--font-body); font-size: 0.8rem; font-weight: 600; color: #faf9f5; margin-bottom: 6px;">
+                    <div style="font-family: 'Inter', sans-serif; font-size: 0.82rem; font-weight: 700; color: #141413; margin-bottom: 8px;">
                         📡 Aditya-L1 Archive: 2 Days Only
                     </div>
-                    <div style="font-family: var(--font-body); font-size: 0.82rem; line-height: 1.55; color: #a09d96;">
-                        SoLEXS + HEL1OS data covers <strong style="color:#faf9f5;">Jun 24–25, 2026</strong> (PRADAN release).
-                        The SoLEXS SDD2 lightcurve detects <strong style="color:#faf9f5;">18 thermal events</strong> in this window.
-                        HEL1OS CZT shows 0 confirmed bursts — the 2-day CZT count-rate in this orbit
-                        does not exceed the 85th-percentile non-zero burst threshold; a longer archive
-                        would capture the full hard X-ray population.
+                    <div style="font-family: 'Inter', sans-serif; font-size: 0.83rem; line-height: 1.6; color: #3d3d3a;">
+                        SoLEXS + HEL1OS data covers <strong style="color:#141413;">Jun 24–25, 2026</strong> (PRADAN public release).
+                        SoLEXS SDD2 detects <strong style="color:#141413;">18 thermal events</strong> in this window.
+                        HEL1OS CZT shows 0 confirmed hard X-ray bursts — the 2-day CZT count-rate
+                        does not exceed the 85th-percentile burst threshold; a full multi-day archive
+                        would capture the complete hard X-ray population.
                     </div>
                 </div>
                 <div style="
-                    background: rgba(255,255,255,0.04);
-                    border-radius: 10px;
-                    padding: 14px 16px;
+                    background: rgba(255,255,255,0.7);
+                    border-radius: 12px;
+                    padding: 16px 18px;
+                    border: 1px solid #e6dfd8;
                 ">
-                    <div style="font-family: var(--font-body); font-size: 0.8rem; font-weight: 600; color: #faf9f5; margin-bottom: 6px;">
+                    <div style="font-family: 'Inter', sans-serif; font-size: 0.82rem; font-weight: 700; color: #141413; margin-bottom: 8px;">
                         📊 Performance Metrics: GOES Proxy Test Set
                     </div>
-                    <div style="font-family: var(--font-body); font-size: 0.82rem; line-height: 1.55; color: #a09d96;">
-                        TPR, FAR, TSS, AUC-ROC and Median Lead Time are scored on the full
-                        <strong style="color:#faf9f5;">2021–2023 GOES XRS proxy dataset</strong>
+                    <div style="font-family: 'Inter', sans-serif; font-size: 0.83rem; line-height: 1.6; color: #3d3d3a;">
+                        TPR, FAR, TSS, AUC-ROC and Median Lead Time are scored on the
+                        <strong style="color:#141413;">2021–2023 GOES XRS proxy dataset</strong>
                         (~1,200 labelled M/X-class events). No ground-truth labels exist for the
-                        2-day Aditya-L1 window, so those sidebar numbers reflect proxy-set performance —
+                        2-day Aditya-L1 window — sidebar scores reflect proxy-set performance,
                         not a limitation of the physics engine.
                     </div>
                 </div>
             </div>
-            <div style="font-family: var(--font-body); font-size: 0.78rem; color: #716c63; border-top: 1px solid rgba(255,255,255,0.07); padding-top: 10px;">
-                All lightcurve physics (FAI · NRI · Instability Ladder · SoLEXS event detections) operate directly on real Level-1 Aditya-L1 counts/sec — no proxies, no simulations.
+            <div style="
+                font-family: 'Inter', sans-serif;
+                font-size: 0.79rem;
+                color: #59554e;
+                border-top: 1px solid #e6dfd8;
+                padding-top: 12px;
+                line-height: 1.5;
+            ">
+                ✅ All lightcurve physics — FAI, NRI, Instability Ladder, and SoLEXS event detections — run directly on real Level-1 Aditya-L1 counts/sec. No proxies. No simulations.
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+
 
 with st.expander("📐 Physics Behind Coronalytics"):
 
