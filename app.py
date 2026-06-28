@@ -17,6 +17,8 @@ from src.nri import compute_nri, quiet_sun_sigma
 from src.visualisation import build_ladder_gauge, build_lightcurve
 
 try:
+    import sys, os
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from src.aditya_l1 import diagnose_data_root, load_aditya_l1_dataset
 
     ADITYA_L1_AVAILABLE = True
@@ -55,6 +57,70 @@ except ModuleNotFoundError:
 
     def detect_qpp(*_args, **_kwargs) -> dict:
         return {}
+
+
+_SNAPSHOT_PATH = Path("data/aditya_l1_snapshot.json")
+
+
+def _load_snapshot() -> dict | None:
+    """Load pre-computed Aditya-L1 results from the committed JSON snapshot.
+
+    Returns None if the snapshot file is absent.
+    The snapshot is generated from real SoLEXS/HEL1OS FITS data locally
+    and committed to the repo so evaluators without the raw data (297 MB)
+    can still see genuine Aditya-L1 analysis results.
+    """
+    if not _SNAPSHOT_PATH.exists():
+        return None
+    import json
+    raw = json.loads(_SNAPSHOT_PATH.read_text())
+
+    def _to_df(records: list, datetime_cols: list) -> pd.DataFrame:
+        if not records:
+            return pd.DataFrame()
+        df = pd.DataFrame(records)
+        for col in datetime_cols:
+            if col in df.columns:
+                df[col] = pd.to_datetime(df[col], errors="coerce", utc=True)
+        return df
+
+    solexs = _to_df(
+        raw.get("solexs_events", []),
+        ["start", "peak_time", "end"],
+    )
+    hel1os = _to_df(
+        raw.get("hel1os_events", []),
+        ["start", "peak_time", "end"],
+    )
+    fused = _to_df(
+        raw.get("fused_events", []),
+        ["solexs_start", "solexs_peak", "solexs_end", "hel1os_peak"],
+    )
+
+    # Reconstruct a minimal sxr_b lightcurve frame from the 5-min snapshot
+    lc = raw.get("sxr_lightcurve", {})
+    if lc:
+        lc_series = pd.Series(
+            {pd.Timestamp(k, tz="UTC"): v for k, v in lc.items()},
+            name="sxr_b",
+            dtype=float,
+        )
+        lc_frame = lc_series.resample("1s").interpolate(method="time").to_frame()
+        lc_frame["hxr_proxy"] = 0.0
+    else:
+        lc_frame = pd.DataFrame()
+
+    return {
+        "frame": lc_frame,
+        "solexs_events": solexs,
+        "hel1os_events": hel1os,
+        "fused_events": fused,
+        "notices": raw.get("notices", []) + [
+            "📦 Showing pre-computed Aditya-L1 results (snapshot from "
+            + raw.get("data_dates", "real FITS data")
+            + "). Full live analysis requires the raw FITS archive."
+        ],
+    }
 
 
 st.set_page_config(page_title="AgniDrishti", layout="wide", page_icon="☀")
@@ -125,6 +191,33 @@ def load_selected_data(data_source: str, mode: str, real_data_root: str):
             }
         except Exception as exc:
             fallback = f"Real Aditya-L1 load failed: {exc}"
+            # ── Snapshot fallback ──────────────────────────────────────────
+            # If the raw FITS archive isn't present (e.g. on Streamlit Cloud
+            # or a reviewer's machine), load pre-computed results from the
+            # lightweight JSON snapshot committed to the repository.
+            snapshot = _load_snapshot()
+            if snapshot is not None and not snapshot["frame"].empty:
+                snap_frame = snapshot["frame"]
+                # Use the GOES proxy sample for the main lightcurve/NRI
+                # (so FAI/NRI/ladder remain functional); overlay the real
+                # SoLEXS detection results in the instrument tabs.
+                if mode == "Real-time NOAA":
+                    base = load_goes_data(None)
+                else:
+                    sample_path = Path("data/sample_event.csv")
+                    base = (
+                        pd.read_csv(sample_path, parse_dates=["time_tag"]).set_index("time_tag")
+                        if sample_path.exists()
+                        else build_sample_event()
+                    )
+                return base, "goes_fermi_proxy", {
+                    "solexs_events": snapshot["solexs_events"],
+                    "hel1os_events": snapshot["hel1os_events"],
+                    "fused_events":  snapshot["fused_events"],
+                    "qpp_result": {},
+                    "notices": snapshot["notices"],
+                    "fallback_reason": fallback,
+                }
     else:
         fallback = ""
 
@@ -701,12 +794,34 @@ with tab2:
         st.dataframe(hel1os_events, width="stretch")
         st.bar_chart(hel1os_events[["burst_duration_s"]])
 with tab3:
-    st.markdown("**Fused via NRI** - combining both independent detections.")
+    st.markdown(
+        "**Fused via NRI** — SoLEXS thermal events matched against HEL1OS hard X-ray bursts "
+        "within a 45-minute Neupert-effect tolerance window.  "
+        "Events labelled *SoLEXS-only* occurred outside HEL1OS coverage hours."
+    )
     fused_events = independent["fused_events"]
     if fused_events.empty:
         st.info("No independent SoLEXS/HEL1OS matches found within the fusion tolerance.")
     else:
-        st.dataframe(fused_events, width="stretch")
+        # Display timestamp columns as readable strings
+        display_fused = fused_events.copy()
+        for col in ["solexs_start", "solexs_peak", "solexs_end"]:
+            if col in display_fused.columns:
+                display_fused[col] = pd.to_datetime(display_fused[col]).dt.strftime("%H:%M UTC")
+        if "hel1os_peak" in display_fused.columns:
+            display_fused["hel1os_peak"] = pd.to_datetime(display_fused["hel1os_peak"], errors="coerce").dt.strftime("%H:%M UTC").fillna("—")
+        st.dataframe(display_fused, width="stretch")
+        # Count by match type for summary
+        if "match_type" in fused_events.columns:
+            n_fused = (fused_events["match_type"] == "Fused (SoLEXS + HEL1OS)").sum()
+            n_solo = fused_events["match_type"].str.startswith("SoLEXS-only").sum()
+            if n_fused:
+                st.success(f"✅ {n_fused} cross-instrument Neupert-corroborated event(s) detected.")
+            if n_solo:
+                st.caption(
+                    f"ℹ️ {n_solo} SoLEXS event(s) shown without HEL1OS counterpart — "
+                    "HEL1OS data may not cover those orbits in the current archive."
+                )
 
 st.subheader("Flares Today")
 display_events = events if not events.empty else load_events_sqlite()

@@ -8,3 +8,5 @@ catalogue/*.sqlite
 models/*.pkl
 .streamlit/secrets.toml
 tmpshots/
+data/aditya_l1/
+.tmp_indep_dis.txt
