@@ -12,149 +12,127 @@ def build_ladder_gauge(state, fai: float, nri_sigma: float) -> go.Figure:
 
     color = STATE_COLORS[state]
 
-    # ── Segment definitions (5 states mapped to 0-4) ──────────────────────────
-    segments = [
-        (0, 1, "#4caf7d", "Quiet"),
-        (1, 2, "#e8c96a", "Pre-Heat"),
-        (2, 3, "#e89c5a", "Therm. Instab."),
-        (3, 4, "#e05a5a", "Ignition"),
-        (4, 5, "#c64545", "Critical"),
-    ]
-    # Map state value (0-4) to arc; full arc spans 210° from 210° to -30° (clockwise)
-    total_range = 5
-    start_deg = 210   # leftmost (Quiet start)
-    sweep_deg = 240   # total sweep
+    # Semicircle: 180° (left/Quiet) → 0° (right/Critical), 5 equal segments of 36°
+    r_in, r_out = 0.52, 0.88
+    seg_colors = ["#4caf7d", "#e3c85a", "#e89c5a", "#e05a5a", "#c64545"]
+    seg_names  = ["Quiet", "Pre-Heat", "Thermal\nInstab.", "Ignition", "Critical"]
 
-    def val_to_deg(v):
-        return start_deg - (v / total_range) * sweep_deg
-
-    def arc_path(v_start, v_end, r_inner=0.55, r_outer=0.85):
-        """SVG-like path for a donut arc segment in polar-ish coords."""
-        a0 = math.radians(val_to_deg(v_start))
-        a1 = math.radians(val_to_deg(v_end))
-        # Outer arc points
-        x0o, y0o = r_outer * math.cos(a0), r_outer * math.sin(a0)
-        x1o, y1o = r_outer * math.cos(a1), r_outer * math.sin(a1)
-        # Inner arc points
-        x0i, y0i = r_inner * math.cos(a0), r_inner * math.sin(a0)
-        x1i, y1i = r_inner * math.cos(a1), r_inner * math.sin(a1)
-        large = 1 if abs(v_end - v_start) / total_range * sweep_deg > 180 else 0
-        path = (
-            f"M {x0o:.4f},{y0o:.4f} "
-            f"A {r_outer},{r_outer} 0 {large},0 {x1o:.4f},{y1o:.4f} "
-            f"L {x1i:.4f},{y1i:.4f} "
-            f"A {r_inner},{r_inner} 0 {large},1 {x0i:.4f},{y0i:.4f} Z"
-        )
-        return path
+    def arc_polygon(a_start_deg: float, a_end_deg: float, n: int = 80):
+        """Return (xs, ys) for a filled donut arc sector."""
+        fwd = [math.radians(a_start_deg + (a_end_deg - a_start_deg) * i / n)
+               for i in range(n + 1)]
+        rev = list(reversed(fwd))
+        xs = [r_out * math.cos(a) for a in fwd] + [r_in * math.cos(a) for a in rev]
+        ys = [r_out * math.sin(a) for a in fwd] + [r_in * math.sin(a) for a in rev]
+        xs.append(xs[0]); ys.append(ys[0])
+        return xs, ys
 
     fig = go.Figure()
 
-    # ── Draw arc segments ─────────────────────────────────────────────────────
-    for v0, v1, seg_color, label in segments:
-        fig.add_shape(
-            type="path",
-            path=arc_path(v0, v1),
-            fillcolor=seg_color,
-            opacity=0.18,
-            line=dict(width=0),
-            xref="paper", yref="paper",
-            x0=0, y0=0, x1=1, y1=1,
-        )
-
-    # ── Draw active segment (brighter fill) ───────────────────────────────────
-    v0, v1 = state.value, state.value + 1
-    fig.add_shape(
-        type="path",
-        path=arc_path(v0, v1),
-        fillcolor=color,
-        opacity=0.72,
-        line=dict(width=0),
-        xref="paper", yref="paper",
-        x0=0, y0=0, x1=1, y1=1,
-    )
+    # ── Draw the 5 arc segments ───────────────────────────────────────────────
+    for i, (seg_col, name) in enumerate(zip(seg_colors, seg_names)):
+        a0 = 180 - i * 36        # each segment = 36°
+        a1 = 180 - (i + 1) * 36
+        is_active = (i == state.value)
+        xs, ys = arc_polygon(a1, a0)
+        fig.add_trace(go.Scatter(
+            x=xs, y=ys,
+            fill="toself",
+            fillcolor=seg_col,
+            opacity=0.90 if is_active else 0.15,
+            line=dict(color="#faf9f5", width=2),
+            mode="lines",
+            showlegend=False,
+            hoverinfo="skip",
+        ))
 
     # ── Needle ────────────────────────────────────────────────────────────────
-    needle_val = state.value + 0.5
-    needle_angle = math.radians(val_to_deg(needle_val))
-    nx = 0.70 * math.cos(needle_angle)
-    ny = 0.70 * math.sin(needle_angle)
-    # Convert from [-1,1] space to [0,1] paper coords (centre at 0.5, 0.45)
-    cx, cy = 0.5, 0.45
-    scale = 0.38
-    fig.add_shape(
-        type="line",
-        x0=cx, y0=cy,
-        x1=cx + nx * scale, y1=cy + ny * scale * 0.9,
-        line=dict(color=color, width=3),
-        xref="paper", yref="paper",
-    )
-    fig.add_shape(
-        type="circle",
-        x0=cx - 0.018, y0=cy - 0.018 * 0.9,
-        x1=cx + 0.018, y1=cy + 0.018 * 0.9,
-        fillcolor=color, line=dict(width=0),
-        xref="paper", yref="paper",
-    )
+    needle_deg = 180 - (state.value + 0.5) * 36
+    needle_rad = math.radians(needle_deg)
+    nx, ny = 0.72 * math.cos(needle_rad), 0.72 * math.sin(needle_rad)
+    fig.add_trace(go.Scatter(
+        x=[0, nx], y=[0, ny],
+        mode="lines",
+        line=dict(color=color, width=3.5),
+        showlegend=False, hoverinfo="skip",
+    ))
+    # hub circle
+    fig.add_trace(go.Scatter(
+        x=[0], y=[0],
+        mode="markers",
+        marker=dict(size=14, color=color,
+                    line=dict(color="#faf9f5", width=2.5)),
+        showlegend=False, hoverinfo="skip",
+    ))
 
-    # ── Segment boundary ticks + labels ───────────────────────────────────────
-    label_r = 0.96
-    tick_labels = ["Quiet", "Pre-H.", "Therm.", "Ign.", "Crit.", ""]
-    for i, lbl in enumerate(tick_labels):
-        angle = math.radians(val_to_deg(i))
-        lx = cx + math.cos(angle) * label_r * scale
-        ly = cy + math.sin(angle) * label_r * scale * 0.9
-        # small tick mark
-        t0x = cx + math.cos(angle) * 0.86 * scale
-        t0y = cy + math.sin(angle) * 0.86 * scale * 0.9
-        t1x = cx + math.cos(angle) * 0.93 * scale
-        t1y = cy + math.sin(angle) * 0.93 * scale * 0.9
-        fig.add_shape(
-            type="line", x0=t0x, y0=t0y, x1=t1x, y1=t1y,
+    # ── Segment boundary tick marks ───────────────────────────────────────────
+    for i in range(6):
+        a = math.radians(180 - i * 36)
+        fig.add_trace(go.Scatter(
+            x=[0.90 * math.cos(a), 0.97 * math.cos(a)],
+            y=[0.90 * math.sin(a), 0.97 * math.sin(a)],
+            mode="lines",
             line=dict(color="#b0a898", width=1.5),
-            xref="paper", yref="paper",
-        )
-        if lbl:
-            fig.add_annotation(
-                x=lx, y=ly, text=lbl, showarrow=False,
-                font=dict(size=9.5, color="#59554e", family="Inter, sans-serif"),
-                xref="paper", yref="paper",
-            )
+            showlegend=False, hoverinfo="skip",
+        ))
 
-    # ── Centre annotations ────────────────────────────────────────────────────
-    state_labels = {
-        "QUIET": "Quiet", "PREHEATING": "Pre-Heating",
+    # ── Segment name labels (centre of each arc) ──────────────────────────────
+    for i, (name, seg_col) in enumerate(zip(seg_names, seg_colors)):
+        center_deg = 180 - (i + 0.5) * 36
+        center_rad = math.radians(center_deg)
+        lr = r_out + 0.14
+        lx = lr * math.cos(center_rad)
+        ly = lr * math.sin(center_rad)
+        is_active = (i == state.value)
+        fig.add_annotation(
+            x=lx, y=ly,
+            text=name.replace("\n", "<br>"),
+            showarrow=False,
+            font=dict(
+                size=9 if not is_active else 10,
+                color=seg_col if is_active else "#8a857c",
+                family="Inter, sans-serif",
+            ),
+            align="center",
+        )
+
+    # ── Centre text annotations ───────────────────────────────────────────────
+    state_display = {
+        "QUIET": "Quiet",
+        "PREHEATING": "Pre-Heating",
         "THERMAL_INSTABILITY": "Thermal Instability",
-        "IGNITION": "Ignition", "CRITICAL": "Critical",
+        "IGNITION": "Ignition",
+        "CRITICAL": "Critical",
     }
     fig.add_annotation(
-        x=0.5, y=0.55,
-        text="<b>Instability Ladder</b>",
+        x=0, y=0.08,
+        text="Instability Ladder",
         showarrow=False,
-        font=dict(size=13, color="#6c6a64", family="'Cormorant Garamond', serif"),
-        xref="paper", yref="paper",
+        font=dict(size=12, color="#8a857c",
+                  family="'Cormorant Garamond', serif"),
     )
     fig.add_annotation(
-        x=0.5, y=0.32,
-        text=f"<b style='color:{color}'>{state_labels.get(state.name, state.name)}</b>",
+        x=0, y=-0.22,
+        text=f"<b>{state_display.get(state.name, state.name)}</b>",
         showarrow=False,
-        font=dict(size=15, color=color, family="'Cormorant Garamond', serif"),
-        xref="paper", yref="paper",
+        font=dict(size=19, color=color,
+                  family="'Cormorant Garamond', serif"),
     )
     fig.add_annotation(
-        x=0.5, y=0.16,
-        text=f"FAI {fai:.2f}  |  NRI {nri_sigma:.1f}σ",
+        x=0, y=-0.42,
+        text=f"FAI {fai:.2f}  ·  NRI {nri_sigma:.1f}σ",
         showarrow=False,
-        font=dict(size=11, color="#6c6a64", family="Inter, sans-serif"),
-        xref="paper", yref="paper",
+        font=dict(size=11, color="#59554e",
+                  family="Inter, sans-serif"),
     )
 
     fig.update_layout(
-        height=310,
-        margin=dict(l=10, r=10, t=18, b=10),
+        height=320,
+        margin=dict(l=20, r=20, t=12, b=12),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        xaxis=dict(visible=False, range=[0, 1]),
-        yaxis=dict(visible=False, range=[0, 1]),
+        xaxis=dict(visible=False, range=[-1.35, 1.35], scaleanchor="y"),
+        yaxis=dict(visible=False, range=[-0.62, 1.18]),
         showlegend=False,
     )
     return fig
