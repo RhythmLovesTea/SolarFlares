@@ -4,6 +4,8 @@ __pycache__/
 *.pyc
 data/cache/*
 !data/cache/.gitkeep
+!data/cache/aditya_l1_realdata.parquet
+!data/cache/aditya_l1_gti.json
 catalogue/*.sqlite
 models/*.pkl
 .streamlit/secrets.toml

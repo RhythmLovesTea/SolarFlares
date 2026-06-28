@@ -10,7 +10,7 @@ import pandas as pd
 from astropy.io import fits
 from astropy.time import Time
 
-__all__ = ["diagnose_data_root", "load_aditya_l1_dataset"]
+__all__ = ["diagnose_data_root", "load_aditya_l1_dataset", "load_aditya_l1_snapshot"]
 
 
 def _glob_paths(data_root: str, pattern: str) -> list[str]:
@@ -242,4 +242,60 @@ def load_aditya_l1_dataset(real_data_root: str) -> tuple[pd.DataFrame, dict]:
         },
         "notices": notices,
     }
+    return frame, products
+
+
+def load_aditya_l1_snapshot(cache_dir: str = "data/cache") -> tuple[pd.DataFrame, dict]:
+    """Load pre-exported Parquet snapshot for cloud deployment.
+
+    Falls back gracefully if files are missing (raises FileNotFoundError so
+    the caller can chain to the next fallback in the priority list).
+
+    Returns the same ``(frame, products)`` tuple as ``load_aditya_l1_dataset``
+    so the rest of the pipeline is unchanged.
+    """
+    import json
+
+    parquet_path = os.path.join(cache_dir, "aditya_l1_realdata.parquet")
+    gti_path = os.path.join(cache_dir, "aditya_l1_gti.json")
+
+    if not os.path.exists(parquet_path):
+        raise FileNotFoundError(
+            f"Parquet snapshot not found at {parquet_path}. "
+            "Run scripts/export_fits_to_parquet.py first."
+        )
+
+    frame = pd.read_parquet(parquet_path, engine="pyarrow")
+    frame.index = pd.to_datetime(frame.index, utc=True)
+
+    gti_data: dict = {}
+    if os.path.exists(gti_path):
+        with open(gti_path) as fh:
+            gti_data = json.load(fh)
+
+    def _parse_gti(lst: list) -> list[tuple]:
+        return [
+            (pd.to_datetime(s, utc=True), pd.to_datetime(e, utc=True))
+            for s, e in lst
+        ]
+
+    snapshot_notices = gti_data.get("notices", []) + [
+        "\U0001f4e6 Showing pre-computed Aditya-L1 results "
+        "(snapshot from 2026-06-24 / 2026-06-25). "
+        "Full live analysis requires the raw FITS archive."
+    ]
+
+    products = {
+        "sdd1":     None,
+        "sdd2":     frame["sxr_b"] if "sxr_b" in frame.columns else pd.Series(dtype=float),
+        "sdd1_gti": [],
+        "sdd2_gti": _parse_gti(gti_data.get("sdd2_gti", [])),
+        "cdte":     None,
+        "czt":      frame["hxr_proxy"] if "hxr_proxy" in frame.columns else pd.Series(dtype=float),
+        "cdte_gti": [],
+        "czt_gti":  _parse_gti(gti_data.get("czt_gti", [])),
+        "paths":    {"source": parquet_path},
+        "notices":  snapshot_notices,
+    }
+
     return frame, products

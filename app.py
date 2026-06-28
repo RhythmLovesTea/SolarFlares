@@ -52,7 +52,11 @@ from src.visualisation import build_ladder_gauge, build_lightcurve
 try:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from src.aditya_l1 import diagnose_data_root, load_aditya_l1_dataset
+    from src.aditya_l1 import (
+        diagnose_data_root,
+        load_aditya_l1_dataset,
+        load_aditya_l1_snapshot,
+    )
 
     ADITYA_L1_AVAILABLE = True
 except ModuleNotFoundError:
@@ -203,6 +207,7 @@ def class_series_for_events(index: pd.DatetimeIndex, events: pd.DataFrame, horiz
 @st.cache_data(show_spinner=False)
 def load_selected_data(data_source: str, mode: str, real_data_root: str):
     if data_source == "real_aditya_l1":
+        # ── Priority 1: Live FITS files (local development) ────────────────
         try:
             frame, products = load_aditya_l1_dataset(real_data_root)
             solexs_events = characterize_solexs(products["sdd1"], products["sdd2"], products["sdd1_gti"], products["sdd2_gti"])
@@ -222,35 +227,51 @@ def load_selected_data(data_source: str, mode: str, real_data_root: str):
                 "notices": products.get("notices", []),
                 "fallback_reason": "",
             }
-        except Exception as exc:
-            fallback = f"Real Aditya-L1 load failed: {exc}"
-            # ── Snapshot fallback ──────────────────────────────────────────
-            # If the raw FITS archive isn't present (e.g. on Streamlit Cloud
-            # or a reviewer's machine), load pre-computed results from the
-            # lightweight JSON snapshot committed to the repository.
-            snapshot = _load_snapshot()
-            if snapshot is not None and not snapshot["frame"].empty:
-                snap_frame = snapshot["frame"]
-                # Use the GOES proxy sample for the main lightcurve/NRI
-                # (so FAI/NRI/ladder remain functional); overlay the real
-                # SoLEXS detection results in the instrument tabs.
-                if mode == "Real-time NOAA":
-                    base = load_goes_data(None)
-                else:
-                    sample_path = Path("data/sample_event.csv")
-                    base = (
-                        pd.read_csv(sample_path, parse_dates=["time_tag"]).set_index("time_tag")
-                        if sample_path.exists()
-                        else build_sample_event()
-                    )
-                return base, "goes_fermi_proxy", {
-                    "solexs_events": snapshot["solexs_events"],
-                    "hel1os_events": snapshot["hel1os_events"],
-                    "fused_events":  snapshot["fused_events"],
-                    "qpp_result": {},
-                    "notices": snapshot["notices"],
-                    "fallback_reason": fallback,
-                }
+        except FileNotFoundError as exc_fits:
+            fits_reason = str(exc_fits)
+        except Exception as exc_fits:  # unexpected FITS-level error
+            fits_reason = f"Real Aditya-L1 load failed: {exc_fits}"
+
+        # ── Priority 2: Pre-exported Parquet snapshot (cloud deployment) ───
+        try:
+            frame, products = load_aditya_l1_snapshot("data/cache")
+            solexs_events = characterize_solexs(products["sdd1"], products["sdd2"], products["sdd1_gti"], products["sdd2_gti"])
+            hel1os_events = characterize_hel1os(products["cdte"], products["czt"], products["cdte_gti"], products["czt_gti"])
+            fused_events = fuse_independent_detections(solexs_events, hel1os_events)
+            return frame, "real_aditya_l1", {
+                "solexs_events": solexs_events,
+                "hel1os_events": hel1os_events,
+                "fused_events": fused_events,
+                "qpp_result": {},
+                "notices": products.get("notices", []),
+                "fallback_reason": "",
+            }
+        except FileNotFoundError:
+            pass  # fall through to Priority 3
+        except Exception as exc_parquet:
+            fits_reason = f"{fits_reason}; Parquet load failed: {exc_parquet}"
+
+        # ── Priority 3: GOES/Fermi proxy + JSON snapshot ───────────────────
+        fallback = fits_reason
+        snapshot = _load_snapshot()
+        if snapshot is not None and not snapshot["frame"].empty:
+            if mode == "Real-time NOAA":
+                base = load_goes_data(None)
+            else:
+                sample_path = Path("data/sample_event.csv")
+                base = (
+                    pd.read_csv(sample_path, parse_dates=["time_tag"]).set_index("time_tag")
+                    if sample_path.exists()
+                    else build_sample_event()
+                )
+            return base, "goes_fermi_proxy", {
+                "solexs_events": snapshot["solexs_events"],
+                "hel1os_events": snapshot["hel1os_events"],
+                "fused_events":  snapshot["fused_events"],
+                "qpp_result": {},
+                "notices": snapshot["notices"],
+                "fallback_reason": fallback,
+            }
     else:
         fallback = ""
 
