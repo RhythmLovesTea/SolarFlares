@@ -1,11 +1,44 @@
 from __future__ import annotations
 
 import html
+import os
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import streamlit as st
+
+# ── Auto-download Aditya-L1 FITS on Streamlit Cloud ──────────────────────────
+# When running on Streamlit Cloud (or any machine without the local FITS
+# archive), this block silently fetches the lightcurve + GTI files from
+# Hugging Face Hub before the dashboard loads.  Total download ~125 MB.
+# Uses st.cache_resource so it only runs ONCE per server session.
+_HF_REPO   = "RhythmLovesTea/SolarFlares-Data"
+_DATA_ROOT = Path("data/aditya_l1")
+_SENTINEL  = _DATA_ROOT / "AL1_SLX_L1_20260625_v1.0" / "SDD2" / "AL1_SOLEXS_20260625_SDD2_L1.lc.gz"
+
+
+@st.cache_resource(show_spinner=False)
+def _ensure_fits_data() -> str:
+    """Download FITS archive from HF Hub if not present locally. Returns status string."""
+    if _SENTINEL.exists():
+        return "local"
+    try:
+        from huggingface_hub import snapshot_download
+        with st.spinner("📡 Fetching Aditya-L1 FITS archive from Hugging Face (~125 MB) …"):
+            snapshot_download(
+                repo_id=_HF_REPO,
+                repo_type="dataset",
+                local_dir=str(_DATA_ROOT),
+                ignore_patterns=["*.pi.gz", "*spectra*.fits", "events/evt.fits"],
+            )
+        return "downloaded"
+    except Exception:
+        return "unavailable"
+
+
+_fits_status = _ensure_fits_data()
+# ─────────────────────────────────────────────────────────────────────────────
 
 from data.download_fermi import synthetic_hxr_from_goes
 from data.download_goes import build_sample_event, load_goes_data
