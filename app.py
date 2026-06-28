@@ -588,29 +588,47 @@ st.html(
       border-radius: 14px !important;
     }
 
-    /* ── State card (dark-navy product surface) ──────────────────── */
+    /* ── State card (warm surface, coloured accent border) ──────── */
     .state-card {
-      padding: 24px 28px;
+      padding: 22px 26px 20px 26px;
       min-height: 158px;
-      border-radius: 12px;
-      background: var(--color-surface-dark);
-      color: var(--color-on-dark);
-      box-shadow: var(--shadow-card);
+      border-radius: 14px;
+      background: linear-gradient(160deg, #faf9f5 0%, #f0e9de 100%);
+      border: 1px solid var(--color-hairline);
+      box-shadow: 0 14px 34px rgba(20,20,19,0.06);
+      position: relative;
+      overflow: hidden;
+    }
+    .state-card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 4px;
+      background: var(--state-accent, var(--color-primary));
+      border-radius: 4px 0 0 4px;
+    }
+    .state-card .state-label {
+      font-family: var(--font-body);
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--state-accent, var(--color-muted));
+      margin: 0 0 10px 0;
     }
     .state-card h2 {
-      margin: 0 0 12px 0;
+      margin: 0 0 10px 0;
       font-family: var(--font-display) !important;
-      font-size: 1.6rem !important;
+      font-size: 2rem !important;
       font-weight: 400 !important;
-      letter-spacing: -0.02em;
-      line-height: 1.1;
-      color: inherit !important;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
     }
     .state-card p {
       margin: 0;
-      font-size: 0.9rem;
-      line-height: 1.5;
-      color: var(--color-on-dark-soft);
+      font-size: 0.875rem;
+      line-height: 1.55;
+      color: var(--color-body);
     }
 
     /* ── Critical pulse (coral callout card) ─────────────────────── */
@@ -805,7 +823,11 @@ with right:
     else:
         display_name = _STATE_DISPLAY.get(current_state.name, current_state.name)
         st.markdown(
-            f'<div class="state-card"><h2 style="color:{state_color};">{display_name}</h2><p>{alert}</p></div>',
+            f'<div class="state-card" style="--state-accent:{state_color}">'
+            f'<div class="state-label">Solar Instability · Current State</div>'
+            f'<h2 style="color:{state_color};">{display_name}</h2>'
+            f'<p>{alert}</p>'
+            f'</div>',
             unsafe_allow_html=True,
         )
     c1, c2 = st.columns(2)
