@@ -930,31 +930,6 @@ with st.sidebar:
     st.dataframe(metrics_table[["Class", "TPR", "FAR", "Median Lead", "N events"]], width="stretch", hide_index=True)
     if source_used == "real_aditya_l1":
         st.caption("Dynamic range is computed on this dataset's actual event population; full B-X coverage awaits multi-day PRADAN archive download. Level-1 counts/sec are not calibrated GOES W/m² flux.")
-    with st.expander("📊 vs Published Benchmarks", expanded=False):
-        st.markdown(
-            """
-            | Metric | **Coronalytics** | Hassani+2025 | Quantum-Ark* |
-            |--------|----------------|--------------|--------------|
-            | TPR (M+) | {tpr:.2f} | 0.80 | 0.94† |
-            | FAR | {far:.2f} | <0.30 | 0.21† |
-            | TSS | {tss:.2f} | 0.74 | 0.73† |
-            | AUC-ROC | {auc:.2f} | 0.87 | — |
-            | Lead Time | {lead:.0f} min | >10 min | 28 min† |
-
-            *†Quantum-Ark evaluated on 50 hand-picked events (Jun-Sep 2024)*  
-            *Coronalytics evaluated on full 2021-2023 GOES proxy test set*
-
-            **Our edge:** Physics-first explainability — every alert  
-            traces to FAI and NRI, not a black-box score.  
-            Neupert (1968) · Veronig et al. (2005) · Sarwade et al. (2025)
-            """.format(
-                tpr=metrics["TPR"],
-                far=metrics["FAR"],
-                tss=metrics["TSS"],
-                auc=metrics["AUC_ROC"],
-                lead=metrics["median_lead_time"],
-            )
-        )
 
 with st.expander("📐 Physics Behind Coronalytics"):
     qpp_result = independent.get("qpp_result") or {}
