@@ -928,7 +928,70 @@ with st.sidebar:
     if source_used == "real_aditya_l1":
         st.caption("Dynamic range is computed on this dataset's actual event population; full B-X coverage awaits multi-day PRADAN archive download. Level-1 counts/sec are not calibrated GOES W/m² flux.")
 
+if source_used == "real_aditya_l1":
+    st.markdown(
+        """
+        <div style="
+            margin: 2rem 0 1.6rem 0;
+            padding: 24px 28px 20px 28px;
+            background: var(--color-surface-dark);
+            border-radius: 14px;
+            box-shadow: var(--shadow-card);
+            border-left: 3px solid var(--color-primary);
+        ">
+            <div style="
+                font-family: var(--font-body);
+                font-size: 0.72rem;
+                font-weight: 600;
+                letter-spacing: 1.4px;
+                text-transform: uppercase;
+                color: var(--color-primary);
+                margin-bottom: 10px;
+            ">📋 Data Transparency — Evaluation Context</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 14px;">
+                <div style="
+                    background: rgba(255,255,255,0.04);
+                    border-radius: 10px;
+                    padding: 14px 16px;
+                ">
+                    <div style="font-family: var(--font-body); font-size: 0.8rem; font-weight: 600; color: #faf9f5; margin-bottom: 6px;">
+                        📡 Aditya-L1 Archive: 2 Days Only
+                    </div>
+                    <div style="font-family: var(--font-body); font-size: 0.82rem; line-height: 1.55; color: #a09d96;">
+                        SoLEXS + HEL1OS data covers <strong style="color:#faf9f5;">Jun 24–25, 2026</strong> (PRADAN release).
+                        The SoLEXS SDD2 lightcurve detects <strong style="color:#faf9f5;">18 thermal events</strong> in this window.
+                        HEL1OS CZT shows 0 confirmed bursts — the 2-day CZT count-rate in this orbit
+                        does not exceed the 85th-percentile non-zero burst threshold; a longer archive
+                        would capture the full hard X-ray population.
+                    </div>
+                </div>
+                <div style="
+                    background: rgba(255,255,255,0.04);
+                    border-radius: 10px;
+                    padding: 14px 16px;
+                ">
+                    <div style="font-family: var(--font-body); font-size: 0.8rem; font-weight: 600; color: #faf9f5; margin-bottom: 6px;">
+                        📊 Performance Metrics: GOES Proxy Test Set
+                    </div>
+                    <div style="font-family: var(--font-body); font-size: 0.82rem; line-height: 1.55; color: #a09d96;">
+                        TPR, FAR, TSS, AUC-ROC and Median Lead Time are scored on the full
+                        <strong style="color:#faf9f5;">2021–2023 GOES XRS proxy dataset</strong>
+                        (~1,200 labelled M/X-class events). No ground-truth labels exist for the
+                        2-day Aditya-L1 window, so those sidebar numbers reflect proxy-set performance —
+                        not a limitation of the physics engine.
+                    </div>
+                </div>
+            </div>
+            <div style="font-family: var(--font-body); font-size: 0.78rem; color: #716c63; border-top: 1px solid rgba(255,255,255,0.07); padding-top: 10px;">
+                All lightcurve physics (FAI · NRI · Instability Ladder · SoLEXS event detections) operate directly on real Level-1 Aditya-L1 counts/sec — no proxies, no simulations.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
 with st.expander("📐 Physics Behind Coronalytics"):
+
     qpp_result = independent.get("qpp_result") or {}
     qpp_line = (
         f"Current QPP candidate: period {qpp_result.get('period_s', 0):.1f} s, "
