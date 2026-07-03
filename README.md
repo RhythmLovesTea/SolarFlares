@@ -252,16 +252,6 @@ The project uses:
 
 See [`requirements.txt`](requirements.txt) for the full list.
 
-## Suggested reviewer narrative
 
-If you are presenting this project to evaluators, the strongest framing is:
-
-- multi-instrument solar flare intelligence
-- physics-informed and interpretable rather than opaque
-- capable of live, cached, and offline operation
-- backed by event detection, cataloguing, and quantitative metrics
-- validated with unit tests around the core scientific logic
-
-## License
 
 Add the appropriate license for your repository if it is not already present.
