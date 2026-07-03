@@ -174,8 +174,8 @@ AgniDrishti/
 
 ## Running the project
 
-###You can directly Access the Deployed Dashboard by clicking on This Link !!!
-https://coronalytics.streamlit.app/
+### You can directly Access the Deployed Dashboard by clicking on This Link !!!
+- https://coronalytics.streamlit.app/
 
 Otherwise Manually ---
 
