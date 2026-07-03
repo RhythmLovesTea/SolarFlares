@@ -130,6 +130,11 @@ Important limitation:
 - the committed real Aditya-L1 snapshot is a short window, not a full archive
 - reported benchmark-style scores are best interpreted as prototype-level evaluation unless you rerun the pipeline on a broader dataset
 
+- <img width="1895" height="703" alt="image" src="https://github.com/user-attachments/assets/35caaf28-c447-4004-b8b5-4bb554a52c13" />
+  <img width="1909" height="844" alt="image" src="https://github.com/user-attachments/assets/42b4d6e2-67bf-4c0d-b863-e5e97e726f59" />
+  <img width="1920" height="747" alt="image" src="https://github.com/user-attachments/assets/4d8ecf22-38b3-419e-bf3a-8b17931e4576" />
+
+
 ## Repository architecture
 
 ```text
