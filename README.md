@@ -253,5 +253,4 @@ The project uses:
 See [`requirements.txt`](requirements.txt) for the full list.
 
 
-
-Add the appropriate license for your repository if it is not already present.
+### HOPE YOU LIKED OUR EFFORTS!! THANKS FOR REVIEWING IT :)
