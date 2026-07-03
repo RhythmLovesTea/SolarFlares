@@ -1,5 +1,5 @@
 
-# Coronalytics / AgniDrishti
+# Coronalytics 
 
 Physics-informed solar flare nowcasting and event characterization for Aditya-L1, with deterministic fallback paths for offline benchmarking on GOES and Fermi proxy data.
 
